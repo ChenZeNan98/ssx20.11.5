@@ -1,0 +1,42 @@
+..\obj\lcd16032.o: ..\HARDWARE\LCD16032\lcd16032.c
+..\obj\lcd16032.o: ..\HARDWARE\LCD16032\LCD16032.h
+..\obj\lcd16032.o: ..\SYSTEM\sys\sys.h
+..\obj\lcd16032.o: ..\USER\stm32f4xx.h
+..\obj\lcd16032.o: ..\CORE\core_cm4.h
+..\obj\lcd16032.o: D:\SOFTWARE\keil5 mdk(unraveled)\ARM\ARMCC\Bin\..\include\stdint.h
+..\obj\lcd16032.o: ..\CORE\core_cmInstr.h
+..\obj\lcd16032.o: ..\CORE\core_cmFunc.h
+..\obj\lcd16032.o: ..\CORE\core_cm4_simd.h
+..\obj\lcd16032.o: ..\USER\system_stm32f4xx.h
+..\obj\lcd16032.o: ..\USER\stm32f4xx_conf.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_adc.h
+..\obj\lcd16032.o: ..\USER\stm32f4xx.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_crc.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_dbgmcu.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_dma.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_exti.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_flash.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_gpio.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_i2c.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_iwdg.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_pwr.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_rcc.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_rtc.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_sdio.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_spi.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_syscfg.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_tim.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_usart.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_wwdg.h
+..\obj\lcd16032.o: ..\FWLIB\inc\misc.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_cryp.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_hash.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_rng.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_can.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_dac.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_dcmi.h
+..\obj\lcd16032.o: ..\FWLIB\inc\stm32f4xx_fsmc.h
+..\obj\lcd16032.o: D:\SOFTWARE\keil5 mdk(unraveled)\ARM\ARMCC\Bin\..\include\string.h
+..\obj\lcd16032.o: ..\HARDWARE\USART3\usart3.h
+..\obj\lcd16032.o: D:\SOFTWARE\keil5 mdk(unraveled)\ARM\ARMCC\Bin\..\include\stdlib.h
+..\obj\lcd16032.o: ..\SYSTEM\delay\delay.h

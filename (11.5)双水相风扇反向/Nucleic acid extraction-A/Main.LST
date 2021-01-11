@@ -1,0 +1,909 @@
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\OBJ\Main.obj
+COMPILER INVOKED BY: D:\KEIL5\KEIL_C51\C51\BIN\C51.EXE Main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2) OBJECT
+                    -(.\OBJ\Main.obj)
+
+line level    source
+
+   1          // Fluorescence Reader for Isothermal Device ---------
+   2          //---Microcontroller: ADuC847, V1.0 
+   3           //Xianbo Qiu, 2018.4.15
+   4          
+   5                  #include <ADuC847.h>       
+   6                  #include <math.h>
+   7                 sbit AD5621_cs = P3^3;    //AD5621 CS control
+   8                 sbit CON2=P0^0;    //电磁阀   
+   9                 sbit CON1=P0^1;   //FAN control
+  10                 sbit DIR=P0^2;
+  11                 sbit EN=P0^3;
+  12                 
+  13                 #define NULL   0
+  14               
+  15                 unsigned char con_kinds=0x00; 
+  16                 unsigned char heat_status=0;
+  17                 float Temperature_Signal;  
+  18                 float temperature;      //task type
+  19                 unsigned char rece[3];                 //receive buffer
+  20                 unsigned int mode;
+  21                 float Tem_rel;
+  22                 unsigned int dutycycle;
+  23                 unsigned int X0MODE=0;
+  24                 bit dir_control=0;
+  25                 unsigned int highbit=0x05;
+  26                 unsigned int du=0;
+  27                 float Ttest=0;
+  28                 int tempi=0;
+  29                  int restart=0;
+  30          //       unsigned int sys_status=0;
+  31                 unsigned char cnt,flages=0;
+  32          
+  33          void delay(unsigned long i)//12.582912MHZ/12=1048576=0.95367μs;实测5μs
+  34          { 
+  35   1          while (i--);
+  36   1      }
+  37          
+  38          
+  39                                 
+  40          
+  41          
+  42          //-------AD Converter-------------------------------------------------------------------------------------
+             -------
+  43           float Temperature_convert(void)                         
+  44                  { 
+  45   1                 unsigned long test_R;          
+  46   1                 unsigned int sample[3];
+  47   1                 double tmp1=0;
+  48   1                 double tmp2=0;
+  49   1                 double tmp3=0;
+  50   1                 double temper=0;
+  51   1                 extern  float Temperature_Signal;  
+  52   1                      
+  53   1                
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 2   
+
+  54   1                 ADC0CON2 = 0x4A;               // Ref+/- enabled, Primay ADC come from: Ain1 -> Ain2
+  55   1                 RDY0=0;
+  56   1                 ADCMODE=0X22;          
+  57   1                 while(RDY0==0){}                                    //Wait for AD conversion
+  58   1                 RDY0=0;
+  59   1                 sample[2]=ADC0L; 
+  60   1                 sample[1]=ADC0M;
+  61   1                 sample[0]=ADC0H;                                    
+  62   1                 ADCMODE=0X00;
+  63   1                   
+  64   1                 test_R=sample[0]*65536+sample[1]*256+sample[2];     //long    
+  65   1                 tmp1=2.5*test_R/16777216.0;
+  66   1                 tmp2=18000*tmp1/(2.5-tmp1)-1000;
+  67   1                 tmp3=0.9984*tmp2-3.15;//95度范围误差0.2~0.4
+  68   1                 temper=-26.71*log(tmp3) + 271.95;//实际测量温度      
+  69   1                 Temperature_Signal=(float) temper;//   (int)(temper*100);//double temper 放大100倍，强制转换为int 
+  70   1                 Ttest=Temperature_Signal;
+  71   1                 return Temperature_Signal;
+  72   1               }
+  73           
+  74          //=======================AD Converter(get voltage)=========================================
+  75          int Tmp_control(float target)
+  76          { 
+  77   1        extern float Temperature_Signal;   
+  78   1        extern float temperature;
+  79   1      
+  80   1        extern unsigned int dutycycle;
+  81   1      
+  82   1        temperature=Temperature_Signal;   //????
+  83   1      
+  84   1         if(temperature>target)           
+  85   1        { 
+  86   2          dutycycle=0xff;
+  87   2         PWM0H=dutycycle;//dutycycle=0;
+  88   2          return dutycycle;
+  89   2        }
+  90   1        else if(target<=(temperature+1))
+  91   1        {
+  92   2          dutycycle=0X7f;
+  93   2          PWM0H=dutycycle;
+  94   2          return dutycycle;   
+  95   2        }
+  96   1        else 
+  97   1          { 
+  98   2          dutycycle=0;
+  99   2          PWM0H=dutycycle;
+ 100   2          }
+ 101   1        return dutycycle;  
+ 102   1      }
+ 103          
+ 104          ////重新测试 回传确认信息
+ 105          //void send_data_w(void) {
+ 106          //   ES=0;//关串口中断
+ 107          //     TI=0;                                                                                       
+ 108          //     RI=0;                  
+ 109          //  
+ 110          //     SBUF='w';         //Module number of the fluoresence detector (#1/#2) 
+ 111          //     while(TI==0){}                                   
+ 112          //     TI=0;
+ 113          
+ 114          //     SBUF='w';         //Special bit first 
+ 115          //     while(TI==0){}                                   
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 3   
+
+ 116          //     TI=0;       
+ 117          //       
+ 118          //     SBUF='w';        //low 8 bit
+ 119          //     while(TI==0){}                                   
+ 120          //     TI=0;
+ 121          
+ 122          //     SBUF='w';          //High 8 bit
+ 123          //     while(TI==0){}                                    
+ 124          //     TI=0;    
+ 125          
+ 126          //     ES=1;
+ 127          //  
+ 128          //}
+ 129          
+ 130          //A板接收到A开始加热 回传确认信息
+ 131          void send_data_aback(void) {
+ 132   1         ES=0;//关串口中断
+ 133   1           TI=0;                                                                                       
+ 134   1           RI=0;                  
+ 135   1        
+ 136   1           SBUF='q';         //Module number of the fluoresence detector (#1/#2) 
+ 137   1           while(TI==0){}                                   
+ 138   1           TI=0;
+ 139   1      
+ 140   1           SBUF='q';         //Special bit first 
+ 141   1           while(TI==0){}                                   
+ 142   1           TI=0;       
+ 143   1             
+ 144   1           SBUF='q';        //low 8 bit
+ 145   1           while(TI==0){}                                   
+ 146   1           TI=0;
+ 147   1      
+ 148   1           SBUF='q';          //High 8 bit
+ 149   1           while(TI==0){}                                    
+ 150   1           TI=0;    
+ 151   1      
+ 152   1           ES=1;
+ 153   1        
+ 154   1      }
+ 155          
+ 156          //温度回传信息
+ 157          void send_data(void) 
+ 158          // Send Temperature reading (mV) to the main controller
+ 159          {
+ 160   1         extern float Temperature_Signal; 
+ 161   1         extern unsigned char rece[3]; 
+ 162   1         unsigned int temp_rel_H;
+ 163   1         unsigned int temp_rel_L;
+ 164   1         unsigned int temp_rel;
+ 165   1            
+ 166   1           temp_rel=(int)(Temperature_Signal*100);//float temper 放大100倍，强制转换为int 
+ 167   1           temp_rel_H =temp_rel/256;                 //High 8 bit
+ 168   1           temp_rel_L =temp_rel-256*temp_rel_H;      //low 8 bit                      //low 8 bit
+ 169   1          
+ 170   1           ES=0;//关串口中断
+ 171   1           TI=0;                                                                                       
+ 172   1           RI=0;                  
+ 173   1        
+ 174   1           SBUF='t';         //Module number of the fluoresence detector (#1/#2) 
+ 175   1           while(TI==0){}                                   
+ 176   1           TI=0;
+ 177   1      
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 4   
+
+ 178   1           SBUF=temp_rel_L;         //Special bit first 
+ 179   1           while(TI==0){}                                   
+ 180   1           TI=0;       
+ 181   1             
+ 182   1           SBUF=temp_rel_H;        //low 8 bit
+ 183   1           while(TI==0){}                            
+ 184   1           TI=0;
+ 185   1      
+ 186   1           SBUF='o';          //High 8 bit
+ 187   1           while(TI==0){}                                    
+ 188   1           TI=0;    
+ 189   1      
+ 190   1           ES=1;
+ 191   1      }
+ 192          
+ 193          //A离心回传信息
+ 194          void send_data_y(void) {
+ 195   1         ES=0;//关串口中断
+ 196   1           TI=0;                                                                                       
+ 197   1           RI=0;                  
+ 198   1        
+ 199   1           SBUF='y';         //Module number of the fluoresence detector (#1/#2) 
+ 200   1           while(TI==0){}                                   
+ 201   1           TI=0;
+ 202   1      
+ 203   1           SBUF='y';         //Special bit first 
+ 204   1           while(TI==0){}                                   
+ 205   1           TI=0;       
+ 206   1             
+ 207   1           SBUF='y';        //low 8 bit
+ 208   1           while(TI==0){}                                   
+ 209   1           TI=0;
+ 210   1      
+ 211   1           SBUF='y';          //High 8 bit
+ 212   1           while(TI==0){}                                    
+ 213   1           TI=0;    
+ 214   1      
+ 215   1           ES=1;
+ 216   1        
+ 217   1      }
+ 218            
+ 219          //恒温混匀回传信息
+ 220          void send_data_mixinghold(void) 
+ 221            {
+ 222   1               extern float Temperature_Signal; 
+ 223   1         extern unsigned char rece[3]; 
+ 224   1         unsigned int temp_rel_H;
+ 225   1         unsigned int temp_rel_L;
+ 226   1         unsigned int temp_rel;
+ 227   1            
+ 228   1           temp_rel=(int)(Temperature_Signal*100);//float temper 放大100倍，强制转换为int 
+ 229   1           temp_rel_H =temp_rel/256;                 //High 8 bit
+ 230   1           temp_rel_L =temp_rel-256*temp_rel_H;      //low 8 bit   
+ 231   1          
+ 232   1           ES=0;//关串口中断
+ 233   1           TI=0;                                                                                       
+ 234   1           RI=0;                  
+ 235   1        
+ 236   1           SBUF='e';         //Module number of the fluoresence detector (#1/#2) 
+ 237   1           while(TI==0){}                                   
+ 238   1           TI=0;
+ 239   1      
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 5   
+
+ 240   1           SBUF=temp_rel_L;         //Special bit first 
+ 241   1           while(TI==0){}                                   
+ 242   1           TI=0;       
+ 243   1             
+ 244   1           SBUF=temp_rel_H;        //low 8 bit
+ 245   1           while(TI==0){}                                   
+ 246   1           TI=0;
+ 247   1      
+ 248   1           SBUF='e';          //High 8 bit
+ 249   1           while(TI==0){}                                    
+ 250   1           TI=0;    
+ 251   1      
+ 252   1           ES=1;
+ 253   1        
+ 254   1      }
+ 255            
+ 256          //开风扇降温回传信息
+ 257          void send_data_tempdown(void) 
+ 258            {
+ 259   1           extern float Temperature_Signal; 
+ 260   1           extern unsigned char rece[3]; 
+ 261   1           unsigned int temp_rel_H;
+ 262   1           unsigned int temp_rel_L;
+ 263   1           unsigned int temp_rel;
+ 264   1            
+ 265   1           temp_rel=(int)(Temperature_Signal*100);//float temper 放大100倍，强制转换为int 
+ 266   1           temp_rel_H =temp_rel/256;                 //High 8 bit
+ 267   1           temp_rel_L =temp_rel-256*temp_rel_H;      //low 8 bit                      //low 8 bit
+ 268   1          
+ 269   1           ES=0;//关串口中断
+ 270   1           TI=0;                                                                                       
+ 271   1           RI=0;                  
+ 272   1        
+ 273   1           SBUF='g';         //Module number of the fluoresence detector (#1/#2) 
+ 274   1           while(TI==0){}                                   
+ 275   1           TI=0;
+ 276   1      
+ 277   1           SBUF=temp_rel_L;         //Special bit first 
+ 278   1           while(TI==0){}                                   
+ 279   1           TI=0;       
+ 280   1             
+ 281   1           SBUF=temp_rel_H;        //low 8 bit
+ 282   1           while(TI==0){}                            
+ 283   1           TI=0;
+ 284   1      
+ 285   1           SBUF='g';          //High 8 bit
+ 286   1           while(TI==0){}                                    
+ 287   1           TI=0;    
+ 288   1      
+ 289   1           ES=1;
+ 290   1        
+ 291   1      }
+ 292            
+ 293          //降温混匀回传信息
+ 294          void send_data_mixingdown(void) 
+ 295            {
+ 296   1           extern float Temperature_Signal; 
+ 297   1           extern unsigned char rece[3]; 
+ 298   1           unsigned int temp_rel_H;
+ 299   1           unsigned int temp_rel_L;
+ 300   1           unsigned int temp_rel;
+ 301   1            
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 6   
+
+ 302   1           temp_rel=(int)(Temperature_Signal*100);//float temper 放大100倍，强制转换为int 
+ 303   1           temp_rel_H =temp_rel/256;                 //High 8 bit
+ 304   1           temp_rel_L =temp_rel-256*temp_rel_H;      //low 8 bit                      //low 8 bit
+ 305   1          
+ 306   1           ES=0;//关串口中断
+ 307   1           TI=0;                                                                                       
+ 308   1           RI=0;  
+ 309   1          
+ 310   1           SBUF='j';         //Module number of the fluoresence detector (#1/#2) 
+ 311   1           while(TI==0){}                                   
+ 312   1           TI=0;
+ 313   1      
+ 314   1           SBUF=temp_rel_L;         //Special bit first 
+ 315   1           while(TI==0){}                                   
+ 316   1           TI=0;       
+ 317   1             
+ 318   1           SBUF=temp_rel_H;        //low 8 bit
+ 319   1           while(TI==0){}                            
+ 320   1           TI=0;
+ 321   1      
+ 322   1           SBUF='j';          //High 8 bit
+ 323   1           while(TI==0){}                                    
+ 324   1           TI=0;    
+ 325   1      
+ 326   1           ES=1;
+ 327   1        
+ 328   1      }
+ 329          //-----------------
+ 330          
+ 331          
+ 332          //-----------------System Initialization  ----------------------------------------------------      
+ 333          
+ 334               void sys_int(void)     //System Initialization 
+ 335               {
+ 336   1                extern double LED_Current;  //(mA)
+ 337   1             
+ 338   1                PWMCON=0X51;//PWM MODE 5 Dual 8-bit outputs  32.768 KHz/12=2.73KHz
+ 339   1                PWM1H=0XFF;   
+ 340   1                PWM0H=0XFF;
+ 341   1                PWM1L=0X0F;
+ 342   1                PWM0L=0X01; 
+ 343   1      
+ 344   1                delay(100);
+ 345   1                EA=0;              //Disable interruption
+ 346   1      
+ 347   1                PLLCON=0X00;       //12.58MHz    
+ 348   1                CFG847=0X00;       //堆栈配置
+ 349   1      
+ 350   1                RDY0 = 0;         
+ 351   1                SF=13;             // 105.3Hz ADC data rate
+ 352   1                
+ 353   1                ADCMODE = 0x24;    // Internal Zero-Scale Calibration,Chop Mode Enable
+ 354   1                ADCMODE = 0x25;    // Internal Full-Scale Calibration, Chop Mode Enable
+ 355   1                ADC0CON1 = 0x27;   // Buf enabled, Unipolar, Range +2.56V
+ 356   1      
+ 357   1                EADC = 0;     
+ 358   1      
+ 359   1      
+ 360   1                
+ 361   1               // TMOD=0X11;          
+ 362   1       //有关定时器
+ 363   1                TL1=0X3D;                                   
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 7   
+
+ 364   1                TH1=0X0A;             
+ 365   1                TR1=0;             
+ 366   1        
+ 367   1                TL0=0X3D;      // (65536-A3E)*/12582912=50 ms                            
+ 368   1                TH0=0X0A;            
+ 369   1                TR0=0;                
+ 370   1      
+ 371   1                ET0=0;             
+ 372   1                ET1=0;                 
+ 373   1            //有关串口
+ 374   1                ES=0;               //ES 开断串口中断  1enable 0 disable
+ 375   1            
+ 376   1                SCON=0X50;          //8位uart 波特率可变  接收使能
+ 377   1                T3CON = 0x86;       //0x86:9600 Baud (CD=0)----0x84:38400 Baud (CD=0)
+ 378   1                T3FD = 0x12; 
+ 379   1                CON2=0;            //p0^0
+ 380   1      
+ 381   1                delay(100);
+ 382   1                
+ 383   1                PS=1;       //串口中断优先级 1：高 0：低
+ 384   1                EA=1;                 //使能所有中断源  
+ 385   1                ES=1;       //开串口中断
+ 386   1              
+ 387   1              
+ 388   1                EN=0;          //p0^3 
+ 389   1      }
+ 390          
+ 391          void uart_sendstring(unsigned char pt[],unsigned int num)
+ 392          {
+ 393   1        unsigned int i;
+ 394   1        ES=0;//关串口中断
+ 395   1        for(i=0;i<num;i++)
+ 396   1        {
+ 397   2            SBUF=pt[i];
+ 398   2          while(!TI);   //TI transfer发送标志   TI必须由软件置0  0：发送空闲  1：发生完成
+ 399   2          TI=0;
+ 400   2            
+ 401   2        }
+ 402   1        ES=1;//开串口中断
+ 403   1      }
+ 404          
+ 405          //-----------motor_remix 恒温混匀----------//    
+ 406          void motor_remix_stay(int cycle,int T)    //remix with heat ;cycle=10;
+ 407          {
+ 408   1           int i;
+ 409   1           int tempi=0;
+ 410   1             for (i=1;i<cycle;i++){
+ 411   2                Temperature_convert();
+ 412   2                Tmp_control(T);
+ 413   2      //          send_data();
+ 414   2                tempi++;          
+ 415   2                dir_control=~dir_control;
+ 416   2                DIR=dir_control;
+ 417   2                PWM1L=0X09;
+ 418   2                PWM0L=0X08;
+ 419   2                EN=1;
+ 420   2                delay(27000);/////////0.135
+ 421   2                send_data_mixinghold();  //恒温混匀回传信息   
+ 422   2                PWM1L=0X09;
+ 423   2                PWM0L=0X08;
+ 424   2      
+ 425   2                if(tempi==1)
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 8   
+
+ 426   2                {
+ 427   3                  send_data_mixinghold();  //恒温混匀回传信息
+ 428   3                  delay(80000);//0.4s
+ 429   3                }
+ 430   2                else
+ 431   2                {
+ 432   3                  send_data_mixinghold();  //恒温混匀回传信息
+ 433   3                      delay(106000);
+ 434   3      //            delay(300000); //1.5S
+ 435   3                }
+ 436   2                EN=0;
+ 437   2                delay(200000);//1s
+ 438   2                delay(200000);//1s
+ 439   2                send_data_mixinghold();  //恒温混匀回传信息
+ 440   2            }
+ 441   1                dir_control=~dir_control;
+ 442   1                DIR=dir_control;
+ 443   1                PWM1L=0X09;
+ 444   1                PWM0L=0X08;
+ 445   1                EN=1;
+ 446   1                delay(40000);//0.2s
+ 447   1                    
+ 448   1                PWM1L=highbit;
+ 449   1                PWM0L=0X01;
+ 450   1                delay(80000);//0.4s
+ 451   1                send_data_mixinghold();  //恒温混匀回传信息
+ 452   1            tempi=0;
+ 453   1            EN=0;
+ 454   1            
+ 455   1      }
+ 456          
+ 457          //-----------motor_remix-降温混匀---------//     
+ 458          void motor_remix_down(int cycle,int T)    //remix with heat ;cycle=10;
+ 459          {
+ 460   1           int i,k;
+ 461   1           int tempi=0;
+ 462   1             for (i=1;i<cycle;i++){
+ 463   2                Temperature_convert();
+ 464   2                Tmp_control(T);
+ 465   2      //          send_data();
+ 466   2                tempi++;          
+ 467   2                dir_control=~dir_control;
+ 468   2                DIR=dir_control;
+ 469   2                PWM1L=0X09;
+ 470   2                PWM0L=0X01;
+ 471   2                EN=1;
+ 472   2                delay(40000);//0.2s
+ 473   2                send_data_mixingdown();
+ 474   2                PWM1L=highbit;
+ 475   2                PWM0L=0X01;
+ 476   2      
+ 477   2                if(tempi==1)
+ 478   2                {
+ 479   3                  send_data_mixingdown();
+ 480   3                  delay(80000);//0.4s
+ 481   3                }
+ 482   2                else
+ 483   2                {
+ 484   3                  send_data_mixingdown();
+ 485   3                  delay(106000);
+ 486   3      //            delay(300000); //1.5S
+ 487   3                }
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 9   
+
+ 488   2                EN=0;
+ 489   2                delay(200000);//1s
+ 490   2                delay(200000);//1s
+ 491   2                send_data_mixingdown();//混匀散热 led1灭，led2/led3常亮
+ 492   2        
+ 493   2                
+ 494   2      
+ 495   2            }
+ 496   1                dir_control=~dir_control;
+ 497   1                DIR=dir_control;
+ 498   1                PWM1L=0X09;
+ 499   1                PWM0L=0X01;
+ 500   1                EN=1;
+ 501   1                delay(40000);//0.2s
+ 502   1                    
+ 503   1                PWM1L=highbit;
+ 504   1                PWM0L=0X01;
+ 505   1                delay(80000);//0.4s
+ 506   1            send_data_mixingdown();//风扇开启，混匀散热 led1灭，led2/led3常亮
+ 507   1            tempi=0;
+ 508   1            EN=0;
+ 509   1            
+ 510   1      }
+*** WARNING C280 IN LINE 460 OF Main.c: 'k': unreferenced local variable
+ 511            
+ 512          //----------stop heat and star fan-------------//
+ 513          //period=10*1s;
+ 514          void fan_en(int cycle){
+ 515   1        
+ 516   1        int i,j;
+ 517   1        CON1=0;
+ 518   1        
+ 519   1        for(i=0;i<cycle;i++){
+ 520   2          Temperature_convert();
+ 521   2          Tmp_control(20.0);
+ 522   2      //    send_data();
+ 523   2          //1s一次
+ 524   2          for(j=0;j<200;j++)
+ 525   2              {
+ 526   3                delay(1000);            
+ 527   3              }
+ 528   2          send_data_tempdown(); //风扇开启，混匀散热 led1灭，led2/led3常亮v
+ 529   2      //    delay(200000);//1s
+ 530   2        }
+ 531   1        CON1=1;//stop fan
+ 532   1      }
+ 533          
+ 534          
+ 535            
+ 536          
+ 537            
+ 538          
+ 539          
+ 540          //------------Main Function-----------
+ 541          void main(void)
+ 542          {
+ 543   1         extern unsigned char con_kinds;
+ 544   1         extern unsigned char rece[3]; 
+ 545   1         extern double LED_Current;
+ 546   1         extern unsigned char heat_status;
+ 547   1      
+ 548   1        CON1=1;
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 10  
+
+ 549   1        CON2=0;
+ 550   1      
+ 551   1      
+ 552   1        sys_int();
+ 553   1      //------- RESET-------//
+ 554   1      
+ 555   1          IT0=1;   //T0下降沿触发 
+ 556   1          EX0=1;   //外部中断0使能
+ 557   1          delay(1000);
+ 558   1          X0MODE=1; //  T0MODE=1 电机复位
+ 559   1        
+ 560   1          PWM1L=0X0F;
+ 561   1          PWM0L=0X01; 
+ 562   1          EN=1;
+ 563   1          DIR=1;
+ 564   1          delay(20000);//1s
+ 565   1          
+ 566   1          EN=0;
+ 567   1          delay(20000);//100ms
+ 568   1          
+ 569   1           if(X0MODE==1)
+ 570   1           {
+ 571   2          EN=1;
+ 572   2          DIR=0;
+ 573   2          PWM1L=0X0f;
+ 574   2          PWM0L=0X01;
+ 575   2      
+ 576   2          delay(20000);//1s
+ 577   2      //    delay(200000);//1s
+ 578   2           }
+ 579   1      
+ 580   1          dir_control=1;
+ 581   1          delay(200000);//1s
+ 582   1           
+ 583   1          //反向判断  EN使能，DIR反方向？？
+ 584   1          PWM1L=0X0F;
+ 585   1          PWM0L=0X01; 
+ 586   1          EN=1;
+ 587   1          DIR=1;
+ 588   1          delay(20000);//1s
+ 589   1          
+ 590   1          EN=0;
+ 591   1          delay(20000);//100ms
+ 592   1          
+ 593   1           if(X0MODE==1)
+ 594   1           {
+ 595   2          EN=1;
+ 596   2          DIR=1;
+ 597   2          PWM1L=0X0f;
+ 598   2          PWM0L=0X01;
+ 599   2             
+ 600   2          delay(20000);//1s
+ 601   2      //    delay(200000);//1s
+ 602   2           }
+ 603   1      
+ 604   1          dir_control=1;
+ 605   1          delay(200000);//1s
+ 606   1           
+ 607   1           
+ 608   1      //     while(X0MODE)   //按键中断
+ 609   1      //     {
+ 610   1      //        uart_sendstring("waittingkey",11);
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 11  
+
+ 611   1      //       if(X0MODE==0x0f){
+ 612   1      //         X0MODE=0;
+ 613   1      //         break;
+ 614   1      //       }
+ 615   1      //       delay(10);
+ 616   1      //     }
+ 617   1      //--------RESET-------//     
+ 618   1      //      ET0=1;
+ 619   1      //      TR0=1;
+ 620   1           
+ 621   1      
+ 622   1           delay(10);
+ 623   1           while(1)                 
+ 624   1            { 
+ 625   2              delay(100);
+ 626   2              
+ 627   2            switch(con_kinds)            //中断接收stm32发送的数据
+ 628   2            {
+ 629   3      
+ 630   3              case 1:   //  A           //开始加热  
+ 631   3                  delay(100);  
+ 632   3                Temperature_convert(); 
+ 633   3                  Tmp_control(100.0);
+ 634   3              
+ 635   3                if(heat_status==1)
+ 636   3                  {
+ 637   4                  send_data();      //A板发送“t”开头数据 判断温度 发送3次（在uart中断中可以看到需要3次）后开始一直发
+             -t开头温度数据
+ 638   4                  heat_status=0;          
+ 639   4                  }
+ 640   3                  delay(100);
+ 641   3                  break;      
+ 642   3              
+ 643   3              case 2:              //Q  star remix
+ 644   3                delay(300000);//0.5s  比B板多1s因为受到Q和B指令时间差
+ 645   3                send_data_mixinghold();  //恒温混匀回传信息
+ 646   3      //        motor_remix_stay(126,100); // 混合伴随加热5min;
+ 647   3                motor_remix_stay(10,100);
+ 648   3              
+ 649   3                send_data_tempdown(); //提前发一句不然屏幕显示会有延迟
+ 650   3                delay(600000);//2s
+ 651   3                fan_en(120);      // 风扇开始散热2min 2min后关风扇 原120
+ 652   3                
+ 653   3                send_data_mixingdown();//提前发一句不然屏幕显示会有延迟
+ 654   3                delay(600000);//0.5s  
+ 655   3                CON1 = 0;       //1s后开风扇
+ 656   3                delay(600000);  //2s
+ 657   3      //          motor_remix_down(60, 20);  //风扇与混合同步进行2min
+ 658   3                motor_remix_down(30, 20);  //风扇与混合同步进行1min
+ 659   3              
+ 660   3                CON1 = 1;        //关风扇关混合
+ 661   3                delay(200000);//1s  /1s
+ 662   3                delay(200000);
+ 663   3                send_data_y();          //发送指令令32开始离心  //发送离心开始标志位“c”给stm32
+ 664   3                send_data_y();
+ 665   3                con_kinds=5;  
+ 666   3                break;  
+ 667   3              
+ 668   3              case 3:  //C  stop remix
+ 669   3                delay(100);
+ 670   3                  EX0=1;   //外部中断0使能
+ 671   3                EN=0;
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 12  
+
+ 672   3                  delay(1000);
+ 673   3                X0MODE=2;
+ 674   3         
+ 675   3                PWM1L=0X09;
+ 676   3                PWM0L=0X01;
+ 677   3                DIR=1;
+ 678   3                EN=1;
+ 679   3                break;
+ 680   3      
+ 681   3                case 4:    // D                                 
+ 682   3                delay(100);
+ 683   3                CON1=0;
+ 684   3                Temperature_convert();
+ 685   3                  Tmp_control(20.0);
+ 686   3                send_data();        
+ 687   3                  break;
+ 688   3              
+ 689   3                case 5: 
+ 690   3                    IT0=1;   //T0下降沿触发 
+ 691   3                    EX0=1;   //外部中断0使能
+ 692   3                    delay(1000);
+ 693   3                    X0MODE=1; //  T0MODE=1 电机复位
+ 694   3                  
+ 695   3                    PWM1L=0X0F;
+ 696   3                    PWM0L=0X01; 
+ 697   3                    EN=1;
+ 698   3                    DIR=1;
+ 699   3                    delay(200000);//1s
+ 700   3                    
+ 701   3                    EN=0;
+ 702   3                    delay(20000);//100ms
+ 703   3                    
+ 704   3                     if(X0MODE==1)
+ 705   3                     {
+ 706   4                    EN=1;
+ 707   4                    DIR=0;
+ 708   4                    PWM1L=0X0f;
+ 709   4                    PWM0L=0X01;
+ 710   4      
+ 711   4                    delay(200000);//1s
+ 712   4                     }
+ 713   3                    dir_control=1;
+ 714   3                    delay(200000);//1s
+ 715   3                    con_kinds=6;               
+ 716   3                 break;
+ 717   3              
+ 718   3                case 6:// F
+ 719   3                break;
+ 720   3      
+ 721   3                default:
+ 722   3                break;
+ 723   3                }
+ 724   2          }
+ 725   1          
+ 726   1      } 
+ 727           
+ 728          
+ 729                
+ 730          
+ 731          
+ 732          //INT0 interruption
+ 733          void InterruptINT0(void) interrupt 0
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 13  
+
+ 734          {
+ 735   1            switch(X0MODE)
+ 736   1              {
+ 737   2              case 1://复位
+ 738   2                EX0=0;
+ 739   2                X0MODE=0x0F;//RESTAR
+ 740   2                EN=0;             
+ 741   2                break;      
+ 742   2      
+ 743   2              case 2:
+ 744   2                EX0=0;
+ 745   2                X0MODE=0x0f;          
+ 746   2                EN=0;   
+ 747   2                break;
+ 748   2      
+ 749   2              default:
+ 750   2        
+ 751   2                break;
+ 752   2            }
+ 753   1                
+ 754   1             
+ 755   1      
+ 756   1      
+ 757   1      }
+ 758          //---------------T0 Interrupter------------
+ 759          /*
+ 760          void InterruptTimer0(void) interrupt 1
+ 761          {
+ 762          
+ 763          TL0 = 0x3D; //
+ 764          TH0 = 0x0A;
+ 765            cnt++;
+ 766            if(cnt>=200);
+ 767            {
+ 768              cnt=0;
+ 769                  if (flages==1)
+ 770                  {         
+ 771                    Temperature_convert();
+ 772                    Tmp_control(100.0);
+ 773                    send_data();
+ 774                  }
+ 775            }
+ 776          
+ 777          }
+ 778          */
+ 779          
+ 780          //-----Serial communication interruption 
+ 781          void commun(void) interrupt 4 using 1 
+ 782          {
+ 783   1        
+ 784   1          extern unsigned char rece[3];       
+ 785   1          extern unsigned char con_kinds;
+ 786   1          extern unsigned char heat_status;
+ 787   1          extern int restart;
+ 788   1          TI=0;                                                        
+ 789   1          ES=0;                           
+ 790   1          
+ 791   1        //Seiral comm protocl (STM32 to ADuC847)
+ 792   1        // Bit[0]: Module number for the Fluor reader (#1(FAM)/#2(ROX))
+ 793   1        // Bit[1]: Speical bit, (1)S --Set LED current, (2)F ---Measure and return fluor value 
+ 794   1        //                      (3)L --LED ON,          (4)M ---LED OFF
+ 795   1        // Bit[2]: LED current (1.0 precision) or 0 for other purposes
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 14  
+
+ 796   1        
+ 797   1          rece[0]=SBUF;   //   Module number 
+ 798   1          RI=0;     ////RI riceive接收标志   RI必须由软件置0  
+ 799   1          while(RI==0){}
+ 800   1          rece[1]=SBUF;    //  Speical bit
+ 801   1          RI=0;  
+ 802   1            
+ 803   1          while(RI==0){}  
+ 804   1          rece[2]=SBUF;       
+ 805   1          RI=0;  
+ 806   1          
+ 807   1            if(rece[0]=='A'||rece[1]=='A'||rece[2]=='A')
+ 808   1          {
+ 809   2            con_kinds=1;
+ 810   2          }
+ 811   1          if(rece[0]=='Q'||rece[1]=='Q'||rece[2]=='Q')
+ 812   1          {
+ 813   2            con_kinds=2;
+ 814   2          }
+ 815   1          
+ 816   1            switch(rece[0])
+ 817   1            {
+ 818   2              case 'A':                  
+ 819   2                con_kinds=1; //Star heat, Measure Temprature
+ 820   2                break;      
+ 821   2              
+ 822   2              case 'Q':                 
+ 823   2                  con_kinds=2; //Star remix
+ 824   2       //         dir_control=1;    
+ 825   2                break;  
+ 826   2      
+ 827   2                    case 'C': 
+ 828   2                  con_kinds=3; //stop remix
+ 829   2                break;  
+ 830   2      
+ 831   2                    case 'D':                   
+ 832   2                con_kinds=4; //stop heat
+ 833   2                      break;
+ 834   2      
+ 835   2              case 'x':               
+ 836   2                restart=1;
+ 837   2                break;
+ 838   2                    
+ 839   2                    
+ 840   2      //        case 'E':               
+ 841   2      //          con_kinds=5;
+ 842   2      //                break;
+ 843   2      
+ 844   2              case 'T': //接收T代表A板          
+ 845   2                         heat_status=1;
+ 846   2                       break;
+ 847   2      
+ 848   2                    default:
+ 849   2                break;
+ 850   2                }
+ 851   1      //    }
+ 852   1          ES=1;              //Enable Comm interruption 
+ 853   1      }
+ 854          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+C51 COMPILER V9.54   MAIN                                                                  11/19/2020 16:10:01 PAGE 15  
+
+   CODE SIZE        =   2103    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     37      53
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

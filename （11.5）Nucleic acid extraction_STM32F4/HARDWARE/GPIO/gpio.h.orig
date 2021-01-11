@@ -1,0 +1,79 @@
+#ifndef __GPIO_H
+#define __GPIO_H
+#include "sys.h"
+/*管脚分配
+|PA0		S1测温			|PB0						|PC0		SW2（2）
+|PA1		S2测温			|PB1						|PC1		OLED SCL
+|PA2		JK1电机通断		|PB2						|PC2		OLED SDA
+|PA3		JK1电机选择		|PB3		RFID（5脚）		|PC3		SW2（1）
+|PA4		IR				|PB4		称重2（2脚）	|PC4		RFID（3脚）
+|PA5		RFID（4脚）		|PB5		称重2（3脚）	|PC5	
+|PA6		RFID（6脚）		|PB6		称重1（2脚）	|PC6		X2（关门限位1）
+|PA7		RFID（8脚）		|PB7		称重1（3脚）	|PC7		X3（按键LED1）
+|PA8		X6				|PB8		超声波2（2脚）	|PC8		X4
+|PA9		TX1（安卓）		|PB9		超声波3（3脚）	|PC9		X5
+|PA10		RX1（安卓）		|PB10						|PC10		TX4
+|PA11		Y4（照明灯1）	|PB11		RX3（QR二维码）	|PC11		RX4
+|PA12		Y3（满桶灯1）	|PB12		X14				|PC12		TX5（MAX485）
+|PA13		SWDIO			|PB13		X12（关门限位2）|PC13	
+|PA14		SWCLK			|PB14		X13（按键LED2）	|PC14		SW2（4）
+|PA15		Y2				|PB15		X11（开门限位2）|PC15		SW2（3）
+|PD0		Y1				|PE0		超声波1（2脚）
+|PD1		485RE			|PE1		超声波1（3脚）
+|PD2		RX5（MAX485）	|PE2		JK2电机选择
+|PD3		Y5（风扇1）		|PE3		JK2电机通断
+|PD4		Y6（按键信号1）	|PE4	
+|PD5		TX2（串口屏）	|PE5	
+|PD6		RX2（串口屏）	|PE6	
+|PD7		RFID（7脚）		|PE7		蜂鸣器
+|PD8		测试灯			|PE8		X16
+|PD9		SW3				|PE9		X15
+|PD10		SW5				|PE10		Y16（按键信号2）
+|PD11		SW4				|PE11		Y15（风扇2）
+|PD12		SW6				|PE12		Y14（照明灯2）
+|PD13		时钟SDA1（4脚）	|PE13		Y13（满桶灯2）
+|PD14		时钟SCL1（3脚）	|PE14		Y12
+|PD15		X1（开门限位1）	|PE15		Y11
+*/
+/********************************推挽输出****************************************************/
+#define Motor_L_S 		PAout(2)	
+#define Motor_L_D 		PAout(3)
+#define Motor_R_S 		PEout(3)	
+#define Motor_R_D 		PEout(2)
+#define	Flashlight_L	PAout(11)
+#define	Flashlight_R	PEout(12)
+#define	Fulllight_L		PAout(12)
+#define	Fulllight_R		PEout(13)
+#define	Keylight_L		PCout(7)
+#define	Keylight_R		PBout(14)
+#define	Fun_L			PDout(3)
+#define	Fun_R			PEout(11)
+#define	TestLED			PDout(3)
+#define	Beep			PEout(7)
+/********************************************************************************************/
+
+/********************************上拉输入****************************************************/
+#define	Key_L			PDin(4)
+#define	Key_R			PEin(10)
+#define	IR				PAin(4)
+#define	Motor_L_O		PDin(15)
+#define	Motor_L_C		PCin(6)
+#define	Motor_R_O		PBin(15)
+#define	Motor_R_C		PBin(13)
+#define DIPS_1			PCin(3)
+#define DIPS_2			PCin(0)
+#define DIPS_3			PCin(15)
+#define DIPS_4			PCin(14)
+#define	KEY_U			PDin(11)
+#define	KEY_D			PDin(10)
+#define	KEY_L			PDin(9)
+#define	KEY_R			PDin(12)
+/********************************************************************************************/
+
+#define KEYU_PRES 	1	
+#define KEYD_PRES 	2	
+#define KEYL_PRES 	3	
+#define KEYR_PRES 	4	
+void GPIO_init(void);//初始化
+
+#endif
