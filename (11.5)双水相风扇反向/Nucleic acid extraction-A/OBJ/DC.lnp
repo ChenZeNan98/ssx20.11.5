@@ -1,3 +1,0 @@
-".\OBJ\Main.obj" 
-TO ".\OBJ\DC" 
-PRINT(".\DC.m51") RAMSIZE(256) 
