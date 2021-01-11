@@ -1,0 +1,33 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+C:\Users\WJ\Desktop\双水相核酸提取仪硬件部分\ADUC847参考程序_2019_5_20\Nucleic acid extraction\Nucleic acid extraction.uvproj
+Project File Date:  05/20/2019
+
+<h2>Output:</h2>
+compiling Main.c...
+--- Error: failed to execute 'D:\keil\C51\INC\ADI\BIN\C51.EXE'
+Build target 'Target 1'
+compiling Main.c...
+--- Error: failed to execute 'D:\keil\C51\INC\ADI\BIN\C51.EXE'
+Target not created
+Rebuild target 'Target 1'
+compiling Main.c...
+--- Error: failed to execute 'D:\keil\C51\INC\ADI\BIN\C51.EXE'
+Target not created
+Rebuild target 'Target 1'
+compiling Main.c...
+--- Error: failed to execute 'D:\keil\C51\INC\ADI\BIN\C51.EXE'
+Target not created
+Rebuild target 'Target 1'
+compiling Main.c...
+--- Error: failed to execute 'D:\keil\C51\INC\ADI\BIN\C51.EXE'
+Target not created
+Build target 'Target 1'
+compiling Main.c...
+--- Error: failed to execute 'D:\keil\C51\INC\ADI\BIN\C51.EXE'
+Target not created
+compiling Main.c...
+--- Error: failed to execute 'D:\keil\C51\INC\ADI\BIN\C51.EXE'
